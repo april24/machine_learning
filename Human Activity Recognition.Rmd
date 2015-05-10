@@ -1,0 +1,81 @@
+---
+title: "Human Activity Recognition"
+author: "Rong Chen"
+output: html_document
+---
+
+## Introduction
+In this project, I used data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.My goal of this project is to predict the manner in which they did the exercise,which is the "classe" variable in the training set. 
+
+
+## Data Cleaning
+First,I loaded the data and cleaned the data.After removing all the variables with missing values, I only leave the variables about"belt", "forearm", "arm", "and dumbell".
+```{r}
+library(lattice);library(ggplot2);library(caret)
+pml<- read.table("./pml-training.csv",sep = ",", header = TRUE)
+pml<-subset(pml,select=-c(X:num_window,kurtosis_roll_belt:var_yaw_belt,var_accel_arm:var_yaw_arm,
+                          kurtosis_roll_arm:amplitude_yaw_arm,kurtosis_roll_dumbbell:amplitude_yaw_dumbbell,
+                          var_accel_dumbbell:var_yaw_dumbbell,kurtosis_roll_forearm:amplitude_yaw_forearm,
+                          var_accel_forearm:var_yaw_forearm))
+```
+Then I ran cor() matrix to eliminate highly correlated variables and removed some highly correlated variables.
+```{r,results='hide'}
+M<-abs(cor(pml[,-53]))
+diag(M)<-0
+which(M>0.8,arr.ind=T)
+```
+
+```{r}
+pml<-subset(pml,select=-c(yaw_belt,total_accel_belt,accel_belt_x,accel_belt_y,accel_belt_z,magnet_belt_x,
+                          gyros_arm_y,magnet_arm_x,magnet_arm_z,gyros_dumbbell_z,gyros_forearm_z,
+                          accel_dumbbell_x,accel_dumbbell_z))
+```
+
+## Cross Validation 
+First I created training and testing  sets.
+```{r}
+set.seed(1234)
+inTrain<-createDataPartition(y=pml$classe,p=0.7,list=FALSE)
+training<-pml[inTrain,]
+testing<-pml[-inTrain,]
+```
+
+Then I fitted 4 models by using the training set, then I Evaluated on the test set. At last I calculated the accuracy of each model.
+
+
+#####1.Prediction with trees
+```{r}
+library(rpart)
+model1<-train(classe~.,method ="rpart",data=training)
+prediction1<-predict(model1,testing)
+confusionMatrix(prediction1,testing$classe)$overall
+```
+#####2.Support vector machine
+```{r}
+library(e1071)
+model2<-svm(classe ~ ., data = training)
+prediction2<-predict(model2,testing)
+confusionMatrix(prediction2,testing$classe)$overall
+```
+#####3.Random forests
+```{r}
+library(randomForest)
+model3<-randomForest(classe ~ ., data = training)
+prediction3<-predict(model3,testing)
+confusionMatrix(prediction3,testing$classe)$overall
+```
+#####4.Boosting with trees
+```{r}
+library(survival);library(splines);library(parallel);library(plyr);library(gbm)
+model4<-train(classe~.,method ="gbm",data=training,verbose=FALSE)
+prediction4<-predict(model4,testing)
+confusionMatrix(prediction4,testing$classe)$overall
+```
+
+## Conclustion
+We can compare these four modles,and find out the model3(Random Forests) is the best model, as it has 99.524% accuracy. So I will choose model3.
+```{r}
+table(prediction3,testing$classe)
+```
+The out of sample error for the testing set is shown in the table.
+
