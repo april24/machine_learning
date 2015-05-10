@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Machine learning by april24</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Machine learning</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/april24/machine_learning" class="btn">View on GitHub</a>
+      <a href="https://github.com/april24/machine_learning/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/april24/machine_learning/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <hr>
+
+<p>title: "Human Activity Recognition"
+author: "Rong Chen"</p>
+
+<h2>
+<a id="output-html_document" class="anchor" href="#output-html_document" aria-hidden="true"><span class="octicon octicon-link"></span></a>output: html_document</h2>
+
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+
+<p>In this project, I used data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.My goal of this project is to predict the manner in which they did the exercise,which is the "classe" variable in the training set. </p>
+
+<h2>
+<a id="data-cleaning" class="anchor" href="#data-cleaning" aria-hidden="true"><span class="octicon octicon-link"></span></a>Data Cleaning</h2>
+
+<p>First,I loaded the data and cleaned the data.After removing all the variables with missing values, I only leave the variables about"belt", "forearm", "arm", "and dumbell".</p>
+
+<div class="highlight highlight-r"><pre>library(<span class="pl-smi">lattice</span>);library(<span class="pl-smi">ggplot2</span>);library(<span class="pl-smi">caret</span>)
+<span class="pl-smi">pml</span><span class="pl-k">&lt;-</span> read.table(<span class="pl-s"><span class="pl-pds">"</span>./pml-training.csv<span class="pl-pds">"</span></span>,<span class="pl-v">sep</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>,<span class="pl-pds">"</span></span>, <span class="pl-v">header</span> <span class="pl-k">=</span> <span class="pl-c1">TRUE</span>)
+<span class="pl-smi">pml</span><span class="pl-k">&lt;-</span>subset(<span class="pl-smi">pml</span>,<span class="pl-v">select</span><span class="pl-k">=</span><span class="pl-k">-</span>c(<span class="pl-smi">X</span><span class="pl-k">:</span><span class="pl-smi">num_window</span>,<span class="pl-smi">kurtosis_roll_belt</span><span class="pl-k">:</span><span class="pl-smi">var_yaw_belt</span>,<span class="pl-smi">var_accel_arm</span><span class="pl-k">:</span><span class="pl-smi">var_yaw_arm</span>,
+                          <span class="pl-smi">kurtosis_roll_arm</span><span class="pl-k">:</span><span class="pl-smi">amplitude_yaw_arm</span>,<span class="pl-smi">kurtosis_roll_dumbbell</span><span class="pl-k">:</span><span class="pl-smi">amplitude_yaw_dumbbell</span>,
+                          <span class="pl-smi">var_accel_dumbbell</span><span class="pl-k">:</span><span class="pl-smi">var_yaw_dumbbell</span>,<span class="pl-smi">kurtosis_roll_forearm</span><span class="pl-k">:</span><span class="pl-smi">amplitude_yaw_forearm</span>,
+                          <span class="pl-smi">var_accel_forearm</span><span class="pl-k">:</span><span class="pl-smi">var_yaw_forearm</span>))</pre></div>
+
+<p>Then I ran cor() matrix to eliminate highly correlated variables and removed some highly correlated variables.</p>
+
+<pre lang="r,results='hide'"><code>M&lt;-abs(cor(pml[,-53]))
+diag(M)&lt;-0
+which(M&gt;0.8,arr.ind=T)
+</code></pre>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">pml</span><span class="pl-k">&lt;-</span>subset(<span class="pl-smi">pml</span>,<span class="pl-v">select</span><span class="pl-k">=</span><span class="pl-k">-</span>c(<span class="pl-smi">yaw_belt</span>,<span class="pl-smi">total_accel_belt</span>,<span class="pl-smi">accel_belt_x</span>,<span class="pl-smi">accel_belt_y</span>,<span class="pl-smi">accel_belt_z</span>,<span class="pl-smi">magnet_belt_x</span>,
+                          <span class="pl-smi">gyros_arm_y</span>,<span class="pl-smi">magnet_arm_x</span>,<span class="pl-smi">magnet_arm_z</span>,<span class="pl-smi">gyros_dumbbell_z</span>,<span class="pl-smi">gyros_forearm_z</span>,
+                          <span class="pl-smi">accel_dumbbell_x</span>,<span class="pl-smi">accel_dumbbell_z</span>))</pre></div>
+
+<h2>
+<a id="cross-validation" class="anchor" href="#cross-validation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Cross Validation</h2>
+
+<p>First I created training and testing  sets.</p>
+
+<div class="highlight highlight-r"><pre>set.seed(<span class="pl-c1">1234</span>)
+<span class="pl-smi">inTrain</span><span class="pl-k">&lt;-</span>createDataPartition(<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">pml</span><span class="pl-k">$</span><span class="pl-smi">classe</span>,<span class="pl-v">p</span><span class="pl-k">=</span><span class="pl-c1">0.7</span>,<span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">training</span><span class="pl-k">&lt;-</span><span class="pl-smi">pml</span>[<span class="pl-smi">inTrain</span>,]
+<span class="pl-smi">testing</span><span class="pl-k">&lt;-</span><span class="pl-smi">pml</span>[<span class="pl-k">-</span><span class="pl-smi">inTrain</span>,]</pre></div>
+
+<p>Then I fitted 4 models by using the training set, then I Evaluated on the test set. At last I calculated the accuracy of each model.</p>
+
+<h5>
+<a id="1prediction-with-trees" class="anchor" href="#1prediction-with-trees" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.Prediction with trees</h5>
+
+<div class="highlight highlight-r"><pre>library(<span class="pl-smi">rpart</span>)
+<span class="pl-smi">model1</span><span class="pl-k">&lt;-</span>train(<span class="pl-smi">classe</span><span class="pl-k">~</span>.,<span class="pl-v">method</span> <span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>rpart<span class="pl-pds">"</span></span>,<span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">training</span>)
+<span class="pl-smi">prediction1</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">model1</span>,<span class="pl-smi">testing</span>)
+confusionMatrix(<span class="pl-smi">prediction1</span>,<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)<span class="pl-k">$</span><span class="pl-smi">overall</span></pre></div>
+
+<h5>
+<a id="2support-vector-machine" class="anchor" href="#2support-vector-machine" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.Support vector machine</h5>
+
+<div class="highlight highlight-r"><pre>library(<span class="pl-smi">e1071</span>)
+<span class="pl-smi">model2</span><span class="pl-k">&lt;-</span>svm(<span class="pl-smi">classe</span> <span class="pl-k">~</span> ., <span class="pl-v">data</span> <span class="pl-k">=</span> <span class="pl-smi">training</span>)
+<span class="pl-smi">prediction2</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">model2</span>,<span class="pl-smi">testing</span>)
+confusionMatrix(<span class="pl-smi">prediction2</span>,<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)<span class="pl-k">$</span><span class="pl-smi">overall</span></pre></div>
+
+<h5>
+<a id="3random-forests" class="anchor" href="#3random-forests" aria-hidden="true"><span class="octicon octicon-link"></span></a>3.Random forests</h5>
+
+<div class="highlight highlight-r"><pre>library(<span class="pl-smi">randomForest</span>)
+<span class="pl-smi">model3</span><span class="pl-k">&lt;-</span>randomForest(<span class="pl-smi">classe</span> <span class="pl-k">~</span> ., <span class="pl-v">data</span> <span class="pl-k">=</span> <span class="pl-smi">training</span>)
+<span class="pl-smi">prediction3</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">model3</span>,<span class="pl-smi">testing</span>)
+confusionMatrix(<span class="pl-smi">prediction3</span>,<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)<span class="pl-k">$</span><span class="pl-smi">overall</span></pre></div>
+
+<h5>
+<a id="4boosting-with-trees" class="anchor" href="#4boosting-with-trees" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.Boosting with trees</h5>
+
+<div class="highlight highlight-r"><pre>library(<span class="pl-smi">survival</span>);library(<span class="pl-smi">splines</span>);library(<span class="pl-smi">parallel</span>);library(<span class="pl-smi">plyr</span>);library(<span class="pl-smi">gbm</span>)
+<span class="pl-smi">model4</span><span class="pl-k">&lt;-</span>train(<span class="pl-smi">classe</span><span class="pl-k">~</span>.,<span class="pl-v">method</span> <span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>gbm<span class="pl-pds">"</span></span>,<span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">training</span>,<span class="pl-v">verbose</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">prediction4</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">model4</span>,<span class="pl-smi">testing</span>)
+confusionMatrix(<span class="pl-smi">prediction4</span>,<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)<span class="pl-k">$</span><span class="pl-smi">overall</span></pre></div>
+
+<h2>
+<a id="conclustion" class="anchor" href="#conclustion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclustion</h2>
+
+<p>We can compare these four modles,and find out the model3(Random Forests) is the best model, as it has 99.524% accuracy. So I will choose model3.</p>
+
+<div class="highlight highlight-r"><pre>table(<span class="pl-smi">prediction3</span>,<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)</pre></div>
+
+<p>The out of sample error for the testing set is 1-99.524%=0.476%</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/april24/machine_learning">Machine learning</a> is maintained by <a href="https://github.com/april24">april24</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
+
